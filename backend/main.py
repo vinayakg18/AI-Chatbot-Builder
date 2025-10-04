@@ -194,46 +194,41 @@ def reset_index():
 
 @app.post("/ask")
 def ask(req: SearchRequest):
-    """
-    Query the FAISS index, then use Ollama (Mistral) to generate a natural answer.
-    """
     if index.ntotal == 0 or len(texts) == 0:
         return {"answer": "No data indexed yet. Upload a document first."}
 
-    # Step 1. Retrieve top chunks
     q_vec = embed_texts([req.query])
     scores, idxs = index.search(q_vec, req.top_k)
-    context_chunks = []
-    for idx in idxs[0]:
-        if idx == -1:
-            continue
-        context_chunks.append(texts[idx]["text"])
+    context_chunks = [texts[idx]["text"] for idx in idxs[0] if idx != -1]
     context = "\n\n".join(context_chunks[:5])
 
-    # Step 2. Build prompt for the model
-    prompt = f"""
-You are an AI assistant answering questions based only on the following context.
-Keep answers short, factual, and quote exact numbers or terms when possible.
-
+    prompt = f"""You are an assistant that answers questions based only on the given context.
 Context:
 {context}
 
 Question:
 {req.query}
 
-Answer:
-"""
+Answer:"""
 
-    # Step 3. Call Ollama locally
+    import os, requests
+    HF_TOKEN = os.getenv("HUGGINGFACE_TOKEN")
+    model = "mistralai/Mistral-7B-Instruct-v0.2"
+
     try:
         response = requests.post(
-            "http://host.docker.internal:11434/api/generate",
-            json={"model": "mistral", "prompt": prompt, "stream": False},
-            timeout=180,
+            f"https://api-inference.huggingface.co/models/{model}",
+            headers={"Authorization": f"Bearer {HF_TOKEN}"},
+            json={"inputs": prompt},
+            timeout=60
         )
         data = response.json()
-        answer_text = data.get("response", "").strip()
+        if isinstance(data, list) and "generated_text" in data[0]:
+            answer = data[0]["generated_text"]
+        else:
+            answer = data
     except Exception as e:
-        answer_text = f"Ollama error: {str(e)}"
+        answer = f"Error contacting Hugging Face: {str(e)}"
 
-    return {"answer": answer_text, "context_used": context[:500]}
+    return {"answer": answer, "context_used": context[:500]}
+
