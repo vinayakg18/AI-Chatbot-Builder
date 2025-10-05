@@ -58,13 +58,8 @@ def load_persisted():
     if TEXTS_PATH.exists():
         texts = json.loads(TEXTS_PATH.read_text(encoding="utf-8"))
     if INDEX_PATH.exists():
-        # must match the same index type used above (IndexFlatIP)
         loaded = faiss.read_index(str(INDEX_PATH))
-        # If empty file was written, keep fresh index
         if loaded.ntotal > 0:
-            # Replace the fresh index with the loaded one
-            # Make sure metric type is inner product for cosine
-            # If you previously saved a different type, delete the index file.
             global index
             index = loaded
 
@@ -202,33 +197,41 @@ def ask(req: SearchRequest):
     context_chunks = [texts[idx]["text"] for idx in idxs[0] if idx != -1]
     context = "\n\n".join(context_chunks[:5])
 
-    prompt = f"""You are an assistant that answers questions based only on the given context.
+    prompt = f"""
+You are a helpful assistant. Use the context below to answer the question accurately.
+
 Context:
 {context}
 
 Question:
 {req.query}
 
-Answer:"""
+Answer:
+"""
 
-    import os, requests
-    HF_TOKEN = os.getenv("HUGGINGFACE_TOKEN")
-    model = "mistralai/Mistral-7B-Instruct-v0.2"
-
+    import requests
     try:
-        response = requests.post(
-            f"https://api-inference.huggingface.co/models/{model}",
-            headers={"Authorization": f"Bearer {HF_TOKEN}"},
-            json={"inputs": prompt},
-            timeout=60
+        res = requests.post(
+            "http://host.docker.internal:11434/api/generate",
+            json={
+                "model": "mistral",
+                "prompt": prompt,
+                "stream": False
+            },
+            timeout=120
         )
-        data = response.json()
-        if isinstance(data, list) and "generated_text" in data[0]:
-            answer = data[0]["generated_text"]
+
+        # ✅ FIX: Handle Ollama’s response correctly
+        data = res.json()
+        if isinstance(data, dict) and "response" in data:
+            answer = data["response"].strip()
         else:
-            answer = data
+            answer = str(data).strip()
+
     except Exception as e:
-        answer = f"Error contacting Hugging Face: {str(e)}"
+        answer = f"Error contacting local Ollama: {str(e)}"
 
     return {"answer": answer, "context_used": context[:500]}
+
+
 
