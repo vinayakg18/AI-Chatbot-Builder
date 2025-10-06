@@ -9,31 +9,42 @@ export default function Home() {
   const [filePreview, setFilePreview] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // ----------- Upload File -----------
-  async function uploadFile(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!e.target.files?.length) return;
-    const formData = new FormData();
-    formData.append("file", e.target.files[0]);
-    setIsLoading(true);
-    try {
-      const res = await fetch("http://localhost:8000/upload", {
-        method: "POST",
-        body: formData,
-      });
-      const data = await res.json();
-      if (data.error) {
-        alert(data.error);
-      } else {
-        setFilePreview(
-          `File: ${data.filename}\nChunks added: ${data.num_chunks}\n\nPreview:\n${data.preview}`
-        );
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Upload failed");
+// ----------- Upload File -----------
+async function uploadFile(e: React.ChangeEvent<HTMLInputElement>) {
+  if (!e.target.files?.length) return;
+
+  const formData = new FormData();
+  formData.append("file", e.target.files[0]);
+  setIsLoading(true);
+
+  try {
+    const res = await fetch("http://localhost:8000/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await res.json();
+
+    if (data.error) {
+      alert(data.error);
+    } else {
+      // ✅ Added summary display
+      const summaryText = data.summary
+        ? `\n\n📄 Summary:\n${data.summary}`
+        : "";
+
+      setFilePreview(
+        `File: ${data.filename}\nChunks added: ${data.num_chunks || data.chunks_added}\n\nPreview:\n${data.preview || ""}${summaryText}`
+      );
     }
-    setIsLoading(false);
+  } catch (err) {
+    console.error(err);
+    alert("Upload failed");
   }
+
+  setIsLoading(false);
+}
+
 
   // ----------- Send Chat (use /ask endpoint) -----------
   async function sendMessage() {

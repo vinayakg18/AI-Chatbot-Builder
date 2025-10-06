@@ -1,15 +1,27 @@
-# Frontend
-frontend/node_modules
-frontend/.next
-
-# Backend
-backend/venv
-backend/__pycache__/
-backend/storage/*
-!backend/storage/.gitkeep
-
-# OS / IDE junk
-.DS_Store
-Thumbs.db
-__pycache__
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
 .env
+
+# Node / Next.js
+node_modules/
+.next/
+dist/
+out/
+
+# Docker
+storage/
+*.log
+*.pid
+*.db
+
+# VS Code
+.vscode/
+.DS_Store
+
+# Build artifacts
+*.cache
+*.egg-info/
